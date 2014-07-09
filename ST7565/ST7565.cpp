@@ -24,12 +24,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 //#include <Wire.h>
 #include <avr/pgmspace.h>
-#include <util/delay.h>
 #include <stdlib.h>
 
 #include "ST7565.h"
 
 #define ST7565_STARTBYTES 1
+
+#ifndef _BV
+#define _BV(bit) (1 << (bit))
+#endif
 
 uint8_t is_reversed = 0;
 
@@ -392,7 +395,7 @@ void ST7565::st7565_init(void) {
     digitalWrite(cs, LOW);
 
   digitalWrite(rst, LOW);
-  _delay_ms(500);
+  delay(500);
   digitalWrite(rst, HIGH);
 
   // LCD bias select
@@ -407,17 +410,17 @@ void ST7565::st7565_init(void) {
   // turn on voltage converter (VC=1, VR=0, VF=0)
   st7565_command(CMD_SET_POWER_CONTROL | 0x4);
   // wait for 50% rising
-  _delay_ms(50);
+  delay(50);
 
   // turn on voltage regulator (VC=1, VR=1, VF=0)
   st7565_command(CMD_SET_POWER_CONTROL | 0x6);
   // wait >=50ms
-  _delay_ms(50);
+  delay(50);
 
   // turn on voltage follower (VC=1, VR=1, VF=1)
   st7565_command(CMD_SET_POWER_CONTROL | 0x7);
   // wait
-  _delay_ms(10);
+  delay(10);
 
   // set lcd operating voltage (regulator resistor, ref voltage resistor)
   st7565_command(CMD_SET_RESISTOR_RATIO | 0x6);

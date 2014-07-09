@@ -94,20 +94,24 @@ void loop()
 {}
 
 // this handy function will return the number of bytes currently free in RAM, great for debugging!   
-int freeRam(void)
-{
-  extern int  __bss_end; 
-  extern int  *__brkval; 
-  int free_memory; 
-  if((int)__brkval == 0) {
-    free_memory = ((int)&free_memory) - ((int)&__bss_end); 
-  }
-  else {
-    free_memory = ((int)&free_memory) - ((int)__brkval); 
-  }
-  return free_memory; 
-} 
 
+#ifdef __arm__
+// should use uinstd.h to define sbrk but Due causes a conflict
+extern "C" char* sbrk(int incr);
+#else  // __ARM__
+extern char *__brkval;
+#endif  // __arm__
+
+int freeRam() {
+  char top;
+#ifdef __arm__
+  return &top - reinterpret_cast<char*>(sbrk(0));
+#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
+  return &top - __brkval;
+#else  // __arm__
+  return __brkval ? &top - __brkval : &top - __malloc_heap_start;
+#endif  // __arm__
+}
 
 #define NUMFLAKES 10
 #define XPOS 0
@@ -116,13 +120,13 @@ int freeRam(void)
 
 void testdrawbitmap(const uint8_t *bitmap, uint8_t w, uint8_t h) {
   uint8_t icons[NUMFLAKES][3];
-  srandom(666);     // whatever seed
+  randomSeed(666);     // whatever seed
  
   // initialize
   for (uint8_t f=0; f< NUMFLAKES; f++) {
-    icons[f][XPOS] = random() % 128;
+    icons[f][XPOS] = random(128);
     icons[f][YPOS] = 0;
-    icons[f][DELTAY] = random() % 5 + 1;
+    icons[f][DELTAY] = random(1,6);
   }
 
   while (1) {
@@ -140,9 +144,9 @@ void testdrawbitmap(const uint8_t *bitmap, uint8_t w, uint8_t h) {
       icons[f][YPOS] += icons[f][DELTAY];
       // if its gone, reinit
       if (icons[f][YPOS] > 64) {
-	icons[f][XPOS] = random() % 128;
+	icons[f][XPOS] = random(128);
 	icons[f][YPOS] = 0;
-	icons[f][DELTAY] = random() % 5 + 1;
+	icons[f][DELTAY] = random(1,6);
       }
     }
   }
