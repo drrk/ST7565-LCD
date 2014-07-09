@@ -390,6 +390,7 @@ void ST7565::st7565_init(void) {
   pinMode(rst, OUTPUT);
   pinMode(cs, OUTPUT);
 
+  digitalWrite( sclk, LOW ) ;
   // toggle RST low to reset; CS low so it'll listen to us
   if (cs > 0)
     digitalWrite(cs, LOW);
@@ -435,8 +436,28 @@ void ST7565::st7565_init(void) {
   updateBoundingBox(0, 0, LCDWIDTH-1, LCDHEIGHT-1);
 }
 
+void __shiftOut( uint32_t ulDataPin, uint32_t ulClockPin, uint32_t ulBitOrder, uint32_t ulVal )
+{
+    uint8_t i ;
+
+    for ( i=0 ; i < 8 ; i++ )
+    {
+        if ( ulBitOrder == LSBFIRST )
+        {
+            digitalWrite( ulDataPin, !!(ulVal & (1 << i)) ) ;
+        }
+        else
+        {
+            digitalWrite( ulDataPin, !!(ulVal & (1 << (7 - i))) ) ;
+        }
+
+        digitalWrite( ulClockPin, HIGH ) ;
+        digitalWrite( ulClockPin, LOW ) ;
+    }
+}
+
 inline void ST7565::spiwrite(uint8_t c) {
-  shiftOut(sid, sclk, MSBFIRST, c);
+  __shiftOut(sid, sclk, MSBFIRST, c);
   /*
   int8_t i;
   for (i=7; i>=0; i--) {
