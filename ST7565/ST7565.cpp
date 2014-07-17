@@ -377,8 +377,8 @@ uint8_t ST7565::getpixel(uint8_t x, uint8_t y) {
 
 void ST7565::begin(uint8_t contrast) {
   st7565_init();
-  st7565_command(CMD_DISPLAY_ON);
   st7565_command(CMD_SET_ALLPTS_NORMAL);
+  st7565_command(CMD_DISPLAY_ON);
   st7565_set_brightness(contrast);
 }
 
@@ -400,11 +400,14 @@ void ST7565::st7565_init(void) {
   digitalWrite(rst, HIGH);
 
   // LCD bias select
-  st7565_command(CMD_SET_BIAS_7);
+  st7565_command(CMD_SET_BIAS_9);
   // ADC select
   st7565_command(CMD_SET_ADC_NORMAL);
   // SHL select
   st7565_command(CMD_SET_COM_NORMAL);
+
+  // Static Off
+  st7565_command(CMD_SET_STATIC_OFF);
   // Initial display line
   st7565_command(CMD_SET_DISP_START_LINE);
 
@@ -424,7 +427,7 @@ void ST7565::st7565_init(void) {
   delay(10);
 
   // set lcd operating voltage (regulator resistor, ref voltage resistor)
-  st7565_command(CMD_SET_RESISTOR_RATIO | 0x6);
+  st7565_command(CMD_SET_RESISTOR_RATIO | 0x7);
 
   // initial display line
   // set page address
