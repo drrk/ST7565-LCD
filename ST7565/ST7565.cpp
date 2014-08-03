@@ -27,17 +27,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include <stdlib.h>
 
 #include "ST7565.h"
-
-#define ST7565_STARTBYTES 1
+#include "SPI.h"
+#define ST7565_STARTBYTES 4
 
 #ifndef _BV
 #define _BV(bit) (1 << (bit))
 #endif
 
-uint8_t is_reversed = 0;
-
 // a handy reference to where the pages are on the screen
-const uint8_t pagemap[] = { 3, 2, 1, 0, 7, 6, 5, 4 };
+const uint8_t pagemap[] = { 7, 6, 5, 4, 3, 2, 1, 0 };
 
 // a 5x7 font table
 extern uint8_t PROGMEM font[];
@@ -125,8 +123,6 @@ uint8_t st7565_buffer[1024] = {
 static uint8_t xUpdateMin, xUpdateMax, yUpdateMin, yUpdateMax;
 #endif
 
-
-
 static void updateBoundingBox(uint8_t xmin, uint8_t ymin, uint8_t xmax, uint8_t ymax) {
 #ifdef enablePartialUpdate
   if (xmin < xUpdateMin) xUpdateMin = xmin;
@@ -137,17 +133,16 @@ static void updateBoundingBox(uint8_t xmin, uint8_t ymin, uint8_t xmax, uint8_t 
 }
 
 void ST7565::drawbitmap(uint8_t x, uint8_t y, 
-			const uint8_t *bitmap, uint8_t w, uint8_t h,
-			uint8_t color) {
-  for (uint8_t j=0; j<h; j++) {
-    for (uint8_t i=0; i<w; i++ ) {
-      if (pgm_read_byte(bitmap + i + (j/8)*w) & _BV(j%8)) {
-	my_setpixel(x+i, y+j, color);
-      }
+    const uint8_t *bitmap, uint8_t w, uint8_t h,
+    uint8_t color) {
+    for (uint8_t j=0; j<h; j++) {
+        for (uint8_t i=0; i<w; i++ ) {
+            if (pgm_read_byte(bitmap + i + (j/8)*w) & _BV(j%8)) {
+                my_setpixel(x+i, y+j, color);
+            }
+        }
     }
-  }
-
-  updateBoundingBox(x, y, x+w, y+h);
+    updateBoundingBox(x, y, x+w, y+h);
 }
 
 void ST7565::drawstring(uint8_t x, uint8_t line, char *c) {
@@ -163,7 +158,6 @@ void ST7565::drawstring(uint8_t x, uint8_t line, char *c) {
       return;        // ran out of space :(
   }
 }
-
 
 void ST7565::drawstring_P(uint8_t x, uint8_t line, const char *str) {
   while (1) {
@@ -186,14 +180,11 @@ void  ST7565::drawchar(uint8_t x, uint8_t line, char c) {
     st7565_buffer[x + (line*128) ] = pgm_read_byte(font+(c*5)+i);
     x++;
   }
-
   updateBoundingBox(x, line*8, x+5, line*8 + 8);
 }
 
-
 // bresenham's algorithm - thx wikpedia
-void ST7565::drawline(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, 
-		      uint8_t color) {
+void ST7565::drawline(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, uint8_t color) {
   uint8_t steep = abs(y1 - y0) > abs(x1 - x0);
   if (steep) {
     swap(x0, y0);
@@ -235,8 +226,7 @@ void ST7565::drawline(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
 }
 
 // filled rectangle
-void ST7565::fillrect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, 
-		      uint8_t color) {
+void ST7565::fillrect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color) {
 
   // stupidest version - just pixels - but fast with internal buffer!
   for (uint8_t i=x; i<x+w; i++) {
@@ -244,13 +234,11 @@ void ST7565::fillrect(uint8_t x, uint8_t y, uint8_t w, uint8_t h,
       my_setpixel(i, j, color);
     }
   }
-
   updateBoundingBox(x, y, x+w, y+h);
 }
 
 // draw a rectangle
-void ST7565::drawrect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, 
-		      uint8_t color) {
+void ST7565::drawrect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color) {
   // stupidest version - just pixels - but fast with internal buffer!
   for (uint8_t i=x; i<x+w; i++) {
     my_setpixel(i, y, color);
@@ -259,14 +247,12 @@ void ST7565::drawrect(uint8_t x, uint8_t y, uint8_t w, uint8_t h,
   for (uint8_t i=y; i<y+h; i++) {
     my_setpixel(x, i, color);
     my_setpixel(x+w-1, i, color);
-  } 
-
+  }
   updateBoundingBox(x, y, x+w, y+h);
 }
 
 // draw a circle outline
-void ST7565::drawcircle(uint8_t x0, uint8_t y0, uint8_t r, 
-			uint8_t color) {
+void ST7565::drawcircle(uint8_t x0, uint8_t y0, uint8_t r, uint8_t color) {
   updateBoundingBox(x0-r, y0-r, x0+r, y0+r);
 
   int8_t f = 1 - r;
@@ -289,25 +275,20 @@ void ST7565::drawcircle(uint8_t x0, uint8_t y0, uint8_t r,
     x++;
     ddF_x += 2;
     f += ddF_x;
-  
+
     my_setpixel(x0 + x, y0 + y, color);
     my_setpixel(x0 - x, y0 + y, color);
     my_setpixel(x0 + x, y0 - y, color);
     my_setpixel(x0 - x, y0 - y, color);
-    
+
     my_setpixel(x0 + y, y0 + x, color);
     my_setpixel(x0 - y, y0 + x, color);
     my_setpixel(x0 + y, y0 - x, color);
     my_setpixel(x0 - y, y0 - x, color);
-    
   }
-
-
-
 }
 
-void ST7565::fillcircle(uint8_t x0, uint8_t y0, uint8_t r, 
-			uint8_t color) {
+void ST7565::fillcircle(uint8_t x0, uint8_t y0, uint8_t r, uint8_t color) {
   updateBoundingBox(x0-r, y0-r, x0+r, y0+r);
 
   int8_t f = 1 - r;
@@ -329,15 +310,15 @@ void ST7565::fillcircle(uint8_t x0, uint8_t y0, uint8_t r,
     x++;
     ddF_x += 2;
     f += ddF_x;
-  
+
     for (uint8_t i=y0-y; i<=y0+y; i++) {
       my_setpixel(x0+x, i, color);
       my_setpixel(x0-x, i, color);
-    } 
+    }
     for (uint8_t i=y0-x; i<=y0+x; i++) {
       my_setpixel(x0+y, i, color);
       my_setpixel(x0-y, i, color);
-    }    
+    }
   }
 }
 
@@ -346,33 +327,24 @@ void ST7565::my_setpixel(uint8_t x, uint8_t y, uint8_t color) {
     return;
 
   // x is which column
-  if (color) 
-    st7565_buffer[x+ (y/8)*128] |= _BV(7-(y%8));  
+  if (color)
+    st7565_buffer[x+ (y/8)*128] |= _BV(7-(y%8));
   else
-    st7565_buffer[x+ (y/8)*128] &= ~_BV(7-(y%8)); 
+    st7565_buffer[x+ (y/8)*128] &= ~_BV(7-(y%8));
 }
 
 // the most basic function, set a single pixel
 void ST7565::setpixel(uint8_t x, uint8_t y, uint8_t color) {
-  if ((x >= LCDWIDTH) || (y >= LCDHEIGHT))
-    return;
-
-  // x is which column
-  if (color) 
-    st7565_buffer[x+ (y/8)*128] |= _BV(7-(y%8));  
-  else
-    st7565_buffer[x+ (y/8)*128] &= ~_BV(7-(y%8)); 
-
-  updateBoundingBox(x,y,x,y);
+    my_setpixel(x,y,color);  //call internal function
+    updateBoundingBox(x,y,x,y); // and ensure bounding box contains the pixel
 }
-
 
 // the most basic function, get a single pixel
 uint8_t ST7565::getpixel(uint8_t x, uint8_t y) {
   if ((x >= LCDWIDTH) || (y >= LCDHEIGHT))
     return 0;
 
-  return (st7565_buffer[x+ (y/8)*128] >> (7-(y%8))) & 0x1;  
+  return (st7565_buffer[x+ (y/8)*128] >> (7-(y%8))) & 0x1;
 }
 
 void ST7565::begin(uint8_t contrast) {
@@ -384,27 +356,29 @@ void ST7565::begin(uint8_t contrast) {
 
 void ST7565::st7565_init(void) {
   // set pin directions
-  pinMode(sid, OUTPUT);
-  pinMode(sclk, OUTPUT);
   pinMode(a0, OUTPUT);
   pinMode(rst, OUTPUT);
   pinMode(cs, OUTPUT);
 
-  digitalWrite( sclk, LOW ) ;
-  // toggle RST low to reset; CS low so it'll listen to us
-  if (cs > 0)
-    digitalWrite(cs, LOW);
+  // Reset Sequence LCD must not be selected, but in command mode
+  digitalWrite(a0, LOW ) ;
+  digitalWrite(cs, HIGH);
 
   digitalWrite(rst, LOW);
-  delay(500);
+  delay(1000);
   digitalWrite(rst, HIGH);
+  digitalWrite(cs, LOW);
+
+  // Setup Hardware SPI
+  SPI.begin(LCD_CS);
+  SPI.setBitOrder(LCD_CS, MSBFIRST);
 
   // LCD bias select
   st7565_command(CMD_SET_BIAS_9);
   // ADC select
-  st7565_command(CMD_SET_ADC_NORMAL);
+  st7565_command(CMD_SET_ADC_REVERSE);
   // SHL select
-  st7565_command(CMD_SET_COM_NORMAL);
+  st7565_command(CMD_SET_COM_REVERSE);
 
   // Static Off
   st7565_command(CMD_SET_STATIC_OFF);
@@ -429,121 +403,22 @@ void ST7565::st7565_init(void) {
   // set lcd operating voltage (regulator resistor, ref voltage resistor)
   st7565_command(CMD_SET_RESISTOR_RATIO | 0x7);
 
-  // initial display line
-  // set page address
-  // set column address
-  // write display data
-
   // set up a bounding box for screen updates
 
   updateBoundingBox(0, 0, LCDWIDTH-1, LCDHEIGHT-1);
 }
 
-void __shiftOut( uint32_t ulDataPin, uint32_t ulClockPin, uint32_t ulBitOrder, uint32_t ulVal )
-{
-    uint8_t i ;
-
-    for ( i=0 ; i < 8 ; i++ )
-    {
-        if ( ulBitOrder == LSBFIRST )
-        {
-            digitalWrite( ulDataPin, !!(ulVal & (1 << i)) ) ;
-        }
-        else
-        {
-            digitalWrite( ulDataPin, !!(ulVal & (1 << (7 - i))) ) ;
-        }
-
-        digitalWrite( ulClockPin, HIGH ) ;
-        digitalWrite( ulClockPin, LOW ) ;
-    }
-}
-
 inline void ST7565::spiwrite(uint8_t c) {
-  __shiftOut(sid, sclk, MSBFIRST, c);
-  /*
-  int8_t i;
-  for (i=7; i>=0; i--) {
-    SCLK_PORT &= ~_BV(SCLK);
-    if (c & _BV(i))
-      SID_PORT |= _BV(SID);
-    else
-      SID_PORT &= ~_BV(SID);
-    SCLK_PORT |= _BV(SCLK);
-  }
-  */
-
-  /*
-  // loop unwrapped! too fast doesnt work :(
- 
-  SCLK_PORT &= ~_BV(SCLK);
-  if (c & _BV(7))
-    SID_PORT |= _BV(SID);
-  else
-    SID_PORT &= ~_BV(SID);
-  SCLK_PORT |= _BV(SCLK);
-
-  SCLK_PORT &= ~_BV(SCLK);
-  if (c & _BV(6))
-    SID_PORT |= _BV(SID);
-  else
-    SID_PORT &= ~_BV(SID);
-  SCLK_PORT |= _BV(SCLK);
- 
-  SCLK_PORT &= ~_BV(SCLK);
-  if (c & _BV(5))
-    SID_PORT |= _BV(SID);
-  else
-    SID_PORT &= ~_BV(SID);
-  SCLK_PORT |= _BV(SCLK);
-
-  SCLK_PORT &= ~_BV(SCLK);
-  if (c & _BV(4))
-    SID_PORT |= _BV(SID);
-  else
-    SID_PORT &= ~_BV(SID);
-  SCLK_PORT |= _BV(SCLK);
-
-  SCLK_PORT &= ~_BV(SCLK);
-  if (c & _BV(3))
-    SID_PORT |= _BV(SID);
-  else
-    SID_PORT &= ~_BV(SID);
-  SCLK_PORT |= _BV(SCLK);
-
-  SCLK_PORT &= ~_BV(SCLK);
-  if (c & _BV(2))
-    SID_PORT |= _BV(SID);
-  else
-    SID_PORT &= ~_BV(SID);
-  SCLK_PORT |= _BV(SCLK);
-
-
-  SCLK_PORT &= ~_BV(SCLK);
-  if (c & _BV(1))
-    SID_PORT |= _BV(SID);
-  else
-    SID_PORT &= ~_BV(SID);
-  SCLK_PORT |= _BV(SCLK);
-
-  SCLK_PORT &= ~_BV(SCLK);
-  if (c & _BV(0))
-    SID_PORT |= _BV(SID);
-  else
-    SID_PORT &= ~_BV(SID);
-  SCLK_PORT |= _BV(SCLK);
-*/
-
+  SPI.transfer(LCD_CS,c);
 }
+
 void ST7565::st7565_command(uint8_t c) {
   digitalWrite(a0, LOW);
-
   spiwrite(c);
 }
 
 void ST7565::st7565_data(uint8_t c) {
   digitalWrite(a0, HIGH);
-
   spiwrite(c);
 }
 void ST7565::st7565_set_brightness(uint8_t val) {
@@ -551,23 +426,10 @@ void ST7565::st7565_set_brightness(uint8_t val) {
     st7565_command(CMD_SET_VOLUME_SECOND | (val & 0x3f));
 }
 
-
 void ST7565::display(void) {
   uint8_t col, maxcol, p;
 
-  /*
-  Serial.print("Refresh ("); Serial.print(xUpdateMin, DEC); 
-  Serial.print(", "); Serial.print(xUpdateMax, DEC);
-  Serial.print(","); Serial.print(yUpdateMin, DEC); 
-  Serial.print(", "); Serial.print(yUpdateMax, DEC); Serial.println(")");
-  */
-
   for(p = 0; p < 8; p++) {
-    /*
-      putstring("new page! ");
-      uart_putw_dec(p);
-      putstring_nl("");
-    */
 #ifdef enablePartialUpdate
     // check if this page is part of update
     if ( yUpdateMin >= ((p+1)*8) ) {
@@ -593,10 +455,8 @@ void ST7565::display(void) {
     st7565_command(CMD_SET_COLUMN_LOWER | ((col+ST7565_STARTBYTES) & 0xf));
     st7565_command(CMD_SET_COLUMN_UPPER | (((col+ST7565_STARTBYTES) >> 4) & 0x0F));
     st7565_command(CMD_RMW);
-    
+
     for(; col <= maxcol; col++) {
-      //uart_putw_dec(col);
-      //uart_putchar(' ');
       st7565_data(st7565_buffer[(128*p)+col]);
     }
   }
@@ -619,21 +479,13 @@ void ST7565::clear(void) {
 // this doesnt touch the buffer, just clears the display RAM - might be handy
 void ST7565::clear_display(void) {
   uint8_t p, c;
-  
-  for(p = 0; p < 8; p++) {
-    /*
-      putstring("new page! ");
-      uart_putw_dec(p);
-      putstring_nl("");
-    */
 
+  for(p = 0; p < 8; p++) {
     st7565_command(CMD_SET_PAGE | p);
     for(c = 0; c < 129; c++) {
-      //uart_putw_dec(c);
-      //uart_putchar(' ');
       st7565_command(CMD_SET_COLUMN_LOWER | (c & 0xf));
       st7565_command(CMD_SET_COLUMN_UPPER | ((c >> 4) & 0xf));
       st7565_data(0x0);
-    }     
+    }
   }
 }

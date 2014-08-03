@@ -77,8 +77,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 class ST7565 {
  public:
-  ST7565(int8_t SID, int8_t SCLK, int8_t A0, int8_t RST, int8_t CS) :sid(SID), sclk(SCLK), a0(A0), rst(RST), cs(CS) {}
-  ST7565(int8_t SID, int8_t SCLK, int8_t A0, int8_t RST) :sid(SID), sclk(SCLK), a0(A0), rst(RST), cs(-1) {}
+  ST7565(int8_t _A0, int8_t RST, int8_t CS) :a0(_A0), rst(RST), cs(CS) {}
 
 
   void st7565_init(void);
@@ -111,7 +110,7 @@ class ST7565 {
 		  uint8_t color);
 
  private:
-  int8_t sid, sclk, a0, rst, cs;
+  int8_t a0, rst, cs;
   void spiwrite(uint8_t c);
 
   void my_setpixel(uint8_t x, uint8_t y, uint8_t color);
